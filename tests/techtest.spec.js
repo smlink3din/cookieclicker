@@ -211,12 +211,15 @@ test('Factory increases cookie generation rate over time', async ({ page }) => {
 
 });
 
-test.fail('User should not be created when navigating directly to game URL',  async ({ page }) => {
+test('BUG: User should not be created when navigating directly to game URL',  async ({ page }) => {
+
     const randomUserName = `User_${Date.now()}`;
 
     await page.goto(`${url}/game/${randomUserName}`);
 
-    await expect(page).toHaveURL(`${url}/game/${randomUserName}`);
+    await expect(page).toHaveURL(
+      `${url}/game/${randomUserName}`
+    );
 
     await page.goto(url);
 
@@ -226,11 +229,12 @@ test.fail('User should not be created when navigating directly to game URL',  as
       userLink,
       'BUG: User gets automatically created when navigating directly to /game/{username}'
     ).not.toBeVisible();
+
   }
 );
 
 // To always be the last test of the pack as it resets the counter
-test.fail('Existing user cookie counter should not reset after clicking Start button',  async ({ page }) => {
+test('BUG: Existing user cookie counter should not reset after clicking Start button',  async ({ page }) => {
 
     const landingPageScore = await getUserScore(page, userName);
 
