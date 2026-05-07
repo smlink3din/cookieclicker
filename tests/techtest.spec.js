@@ -176,7 +176,7 @@ test('User can sell available cookies', async ({ page }) => {
 
   //const sellAmount = currentCookieCount - 1;
   const sellAmount = currentCookieCount;
-  
+
   const sellInput = page.locator('input').nth(0);
 
   await sellInput.fill(String(sellAmount));
@@ -187,9 +187,11 @@ test('User can sell available cookies', async ({ page }) => {
     name: /sell cookies!/i
   }).click();
 
-  await expect.poll(async () => {
-    return await getCookieCount(page);
-  }).toBe(currentCookieCount - sellAmount);
+  await expect.poll(async () => { return await getCookieCount(page);},
+  {
+    message: 'BUG: User can not sell the same number of cookies that are available'
+  }
+  ).toBe(currentCookieCount - sellAmount);
 });
 
 // To always be the last passing test of the pack as it runs the counter
