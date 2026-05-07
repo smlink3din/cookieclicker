@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-const url = 'https://x-y-2026-05-07.cookieclickertechtest.airelogic.com';
+const url = 'https://y-z-2026-05-07.cookieclickertechtest.airelogic.com';
 
 const userName = 'Sri';
 const numberOfCookieClicks = 3;
@@ -164,6 +164,35 @@ test('User can sell cookies and cookie count is decremented', async ({ page }) =
   await sellCookies(page, sellAmount);
 });
 
+test('User can sell available cookies', async ({ page }) => {
+  await goToExistingUserGame(page, userName);
+
+  let currentCookieCount = await getCookieCount(page);
+
+  if (currentCookieCount === 0) {
+    await clickCookieAndWait(page);
+    currentCookieCount = await getCookieCount(page);
+  }
+
+  //const sellAmount = currentCookieCount - 1;
+  const sellAmount = currentCookieCount;
+  
+  const sellInput = page.locator('input').nth(0);
+
+  await sellInput.fill(String(sellAmount));
+
+  await expect(sellInput).toHaveValue(String(sellAmount));
+
+  await page.getByRole('button', {
+    name: /sell cookies!/i
+  }).click();
+
+  await expect.poll(async () => {
+    return await getCookieCount(page);
+  }).toBe(currentCookieCount - sellAmount);
+});
+
+// To always be the last passing test of the pack as it runs the counter
 test('Factory increases cookie generation rate over time', async ({ page }) => {
   await goToExistingUserGame(page, userName);
 
