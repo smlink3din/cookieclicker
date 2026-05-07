@@ -10,6 +10,8 @@
   "type": "commonjs",
   "devDependencies": {
     "@playwright/test": "^1.59.1",
-    "@types/node": "^25.6.0"
+    "@types/node": "^25.6.0",
+    "allure-commandline": "^2.40.0",
+    "allure-playwright": "^3.7.2"
   }
 }
