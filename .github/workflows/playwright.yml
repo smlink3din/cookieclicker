@@ -3,6 +3,7 @@ name: Playwright Tests
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:   
 
 permissions:
   contents: read
@@ -26,17 +27,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Playwright tests
-        run: npx playwright test
+      - name: Run functional tests
+        run: npx playwright test tests/functional
         continue-on-error: true
         env:
           HOME: /root
 
-      - name: Install Java
-        if: always()
-        run: |
-          apt-get update
-          apt-get install -y default-jre
+      - name: Run performance tests
+        run: npx playwright test tests/performance
+        continue-on-error: true
+        env:
+          HOME: /root
 
       - name: Generate Allure Report
         if: always()
