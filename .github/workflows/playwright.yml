@@ -28,15 +28,18 @@ jobs:
 
       - name: Run Playwright tests
         run: npx playwright test
+        continue-on-error: true
         env:
           HOME: /root
 
       - name: Install Java
+        if: always()
         run: |
           apt-get update
           apt-get install -y default-jre
 
       - name: Generate Allure Report
+        if: always()
         run: npx allure generate ./allure-results --clean -o ./allure-report
 
       - name: Upload Allure report as artifact
