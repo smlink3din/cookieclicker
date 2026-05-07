@@ -31,6 +31,11 @@ jobs:
         env:
           HOME: /root
 
+      - name: Install Java
+        run: |
+          apt-get update
+          apt-get install -y default-jre
+
       - name: Generate Allure Report
         run: npx allure generate ./allure-results --clean -o ./allure-report
 
