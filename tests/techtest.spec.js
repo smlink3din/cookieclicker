@@ -211,39 +211,6 @@ test('Factory increases cookie generation rate over time', async ({ page }) => {
 
 });
 
-test('User is created when navigating directly to game URL with random username', async ({ page }) => {
-
-  // Generate random username
-  const randomUserName = `User_${Date.now()}`;
-
-  // Navigate directly to game page
-  await page.goto(`${url}/game/${randomUserName}`);
-
-  // Verify URL
-  await expect(page).toHaveURL(
-    `${url}/game/${randomUserName}`
-  );
-
-  // Verify greeting message
-  await expect(
-    page.locator(`text=Hello ${randomUserName}`)
-  ).toBeVisible();
-
-  // Verify new user starts with 0 cookies
-  const cookieCount = await getCookieCount(page);
-
-  expect(cookieCount).toBe(0);
-
-  // Navigate back to landing page
-  await page.goto(url);
-
-  // Verify user now appears in leaderboard
-  const userLink = getUserLink(page, randomUserName);
-
-  await expect(userLink).toBeVisible();
-
-});
-
 test.fail('User should not be created when navigating directly to game URL',  async ({ page }) => {
     const randomUserName = `User_${Date.now()}`;
 
