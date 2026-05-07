@@ -7,7 +7,7 @@ const numberOfCookieClicks = 3;
 const sellAmount = 1;
 const waitTimeInSeconds = 5;
 
-test.describe.configure({ mode: 'serial' });
+//test.describe.configure({ mode: 'serial' });
 
 const getCookieCount = async (page) => {
   const cookieText = page.locator('p', { hasText: /Cookies:/ });
@@ -211,14 +211,72 @@ test('Factory increases cookie generation rate over time', async ({ page }) => {
 
 });
 
-test('User stats reset to 0 after entering username and clicking Start button', async ({ page }) => {
-  const landingPageScore = await getUserScore(page, userName);
+test('User is created when navigating directly to game URL with random username', async ({ page }) => {
 
-  expect(landingPageScore).toBeGreaterThan(0);
+  // Generate random username
+  const randomUserName = `User_${Date.now()}`;
 
-  await startGame(page, userName);
+  // Navigate directly to game page
+  await page.goto(`${url}/game/${randomUserName}`);
 
-  const gameCookieCount = await getCookieCount(page);
+  // Verify URL
+  await expect(page).toHaveURL(
+    `${url}/game/${randomUserName}`
+  );
 
-  expect(gameCookieCount).toBe(0);
+  // Verify greeting message
+  await expect(
+    page.locator(`text=Hello ${randomUserName}`)
+  ).toBeVisible();
+
+  // Verify new user starts with 0 cookies
+  const cookieCount = await getCookieCount(page);
+
+  expect(cookieCount).toBe(0);
+
+  // Navigate back to landing page
+  await page.goto(url);
+
+  // Verify user now appears in leaderboard
+  const userLink = getUserLink(page, randomUserName);
+
+  await expect(userLink).toBeVisible();
+
 });
+
+test('User should not be created when navigating directly to game URL',  async ({ page }) => {
+    const randomUserName = `User_${Date.now()}`;
+
+    await page.goto(`${url}/game/${randomUserName}`);
+
+    await expect(page).toHaveURL(`${url}/game/${randomUserName}`);
+
+    await page.goto(url);
+
+    const userLink = getUserLink(page, randomUserName);
+
+    await expect(
+      userLink,
+      'BUG: User gets automatically created when navigating directly to /game/{username}'
+    ).not.toBeVisible();
+  }
+);
+
+// To always be the last test of the pack as it resets the counter
+test('Existing user cookie counter should not reset after clicking Start button',  async ({ page }) => {
+
+    const landingPageScore = await getUserScore(page, userName);
+
+    expect(landingPageScore).toBeGreaterThan(0);
+
+    await startGame(page, userName);
+
+    const gameCookieCount = await getCookieCount(page);
+
+    expect(
+      gameCookieCount,
+      'BUG: Existing user cookie counter resets to 0 after clicking Start button'
+    ).toBe(landingPageScore);
+
+  }
+);
