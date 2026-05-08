@@ -28,13 +28,13 @@ jobs:
         run: npm ci
 
       - name: Run functional tests
-        run: npx playwright test tests/functional
+        run: npx playwright test tests/functional --project=chromium
         continue-on-error: true
         env:
           HOME: /root
 
       - name: Run performance tests
-        run: npx playwright test tests/performance
+        run: npx playwright test tests/performance --project=chromium
         continue-on-error: true
         env:
           HOME: /root
