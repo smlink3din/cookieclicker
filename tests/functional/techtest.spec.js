@@ -5,30 +5,33 @@ const url = 'https://y-z-2026-05-07.cookieclickertechtest.airelogic.com';
 const userName = 'Sri';
 const numberOfCookieClicks = 3;
 const sellAmount = 1;
+const factoryAmount = 1;
 const waitTimeInSeconds = 5;
+const moneyPerCookie = 0.25;
 
-//test.describe.configure({ mode: 'serial' });
-
+// Reusable locators/helpers
 const getCookieCount = async (page) => {
-  const cookieText = page.locator('p', { hasText: /Cookies:/ });
-  const text = await cookieText.textContent();
-
+  const text = await page.locator('p', { hasText: /Cookies:/ }).textContent();
   return Number(text.match(/\d+/)[0]);
 };
 
-const getLeaderboardRows = (page) => {
-  return page.locator('table tbody tr');
+const getMoneyValue = async (page) => {
+  const text = await page.locator('p', { hasText: /Money:/ }).textContent();
+  return Number(text.match(/\$([\d.]+)/)[1]);
 };
 
-const getLeaderboardRow = (page, userName) => {
-  return getLeaderboardRows(page).filter({ hasText: userName });
+const getFactoryCount = async (page) => {
+  const text = await page.locator('p', { hasText: /Factories:/ }).textContent();
+  return Number(text.match(/\d+/)[0]);
 };
 
-const getUserLink = (page, userName) => {
-  return getLeaderboardRow(page, userName)
-    .locator('a')
-    .filter({ hasText: userName });
-};
+const getLeaderboardRows = (page) => page.locator('table tbody tr');
+
+const getLeaderboardRow = (page, userName) =>
+  getLeaderboardRows(page).filter({ hasText: userName });
+
+const getUserLink = (page, userName) =>
+  getLeaderboardRow(page, userName).locator('a').filter({ hasText: userName });
 
 const getUserScore = async (page, userName) => {
   const scoreText = await getLeaderboardRow(page, userName)
@@ -38,6 +41,19 @@ const getUserScore = async (page, userName) => {
 
   return Number(scoreText.trim());
 };
+
+const getSellInput = (page) => page.locator('input').nth(0);
+
+const getFactoryInput = (page) => page.locator('input').nth(1);
+
+const getCookieButton = (page) =>
+  page.getByRole('button', { name: /click cookie!/i });
+
+const getSellCookiesButton = (page) =>
+  page.getByRole('button', { name: /sell cookies!/i });
+
+const getBuyFactoriesButton = (page) =>
+  page.getByRole('button', { name: /buy factories!/i });
 
 const goToExistingUserGame = async (page, userName) => {
   const userLink = getUserLink(page, userName);
@@ -55,18 +71,12 @@ const startGame = async (page, userName) => {
   await expect(page).toHaveURL(`${url}/game/${userName}`);
 };
 
-const getCookieButton = (page) => {
-  return page.getByRole('button', { name: /click cookie!/i });
-};
-
 const clickCookieAndWait = async (page) => {
   const beforeClickCount = await getCookieCount(page);
 
   await getCookieButton(page).click();
 
-  await expect.poll(async () => {
-    return await getCookieCount(page);
-  }).toBe(beforeClickCount + 1);
+  await expect.poll(async () => getCookieCount(page)).toBe(beforeClickCount + 1);
 };
 
 const clickCookieMultipleTimes = async (page, numberOfCookieClicks) => {
@@ -75,35 +85,49 @@ const clickCookieMultipleTimes = async (page, numberOfCookieClicks) => {
   }
 };
 
-const sellCookies = async (page, sellAmount) => {
+const enterSellAmount = async (page, amount) => {
+  const sellInput = getSellInput(page);
+
+  await sellInput.fill(String(amount));
+  await expect(sellInput).toHaveValue(String(amount));
+};
+
+const sellCookies = async (page, amount) => {
   const initialCookieCount = await getCookieCount(page);
 
-  const sellInput = page.locator('input').nth(0);
+  await enterSellAmount(page, amount);
+  await getSellCookiesButton(page).click();
 
-  await sellInput.fill(String(sellAmount));
-  await expect(sellInput).toHaveValue(String(sellAmount));
-
-  await page.getByRole('button', { name: /sell cookies!/i }).click();
-
-  await expect.poll(async () => {
-    return await getCookieCount(page);
-  }).toBe(initialCookieCount - sellAmount);
+  await expect.poll(async () => getCookieCount(page)).toBe(
+    initialCookieCount - amount
+  );
 };
 
-const getFactoryCount = async (page) => {
-  const factoryText = page.locator('p', { hasText: /Factories:/ });
-  const text = await factoryText.textContent();
+const ensureCookiesAvailable = async (page, minimumCookieCount = 1) => {
+  let currentCookieCount = await getCookieCount(page);
 
-  return Number(text.match(/\d+/)[0]);
+  while (currentCookieCount < minimumCookieCount) {
+    await clickCookieAndWait(page);
+    currentCookieCount = await getCookieCount(page);
+  }
+
+  return currentCookieCount;
 };
 
-const buyFactories = async (page, factoryAmount) => {
-  const factoryInput = page.locator('input').nth(1);
+const buyFactories = async (page, amount) => {
+  const factoryInput = getFactoryInput(page);
 
-  await factoryInput.fill(String(factoryAmount));
-  await expect(factoryInput).toHaveValue(String(factoryAmount));
+  await factoryInput.fill(String(amount));
+  await expect(factoryInput).toHaveValue(String(amount));
 
-  await page.getByRole('button', { name: /buy factories!/i }).click();
+  await getBuyFactoriesButton(page).click();
+};
+
+const expectCookieCountToBe = async (page, expectedCount, message) => {
+  await expect.poll(
+    async () => getCookieCount(page),
+    message ? { message } : undefined
+  ).toBe(expectedCount);
 };
 
 test.beforeEach(async ({ page }) => {
@@ -167,118 +191,90 @@ test('User can sell cookies and cookie count is decremented', async ({ page }) =
 test('User can sell available cookies', async ({ page }) => {
   await goToExistingUserGame(page, userName);
 
-  let currentCookieCount = await getCookieCount(page);
+  const currentCookieCount = await ensureCookiesAvailable(page);
 
-  if (currentCookieCount === 0) {
-    await clickCookieAndWait(page);
-    currentCookieCount = await getCookieCount(page);
-  }
+  await enterSellAmount(page, currentCookieCount);
+  await getSellCookiesButton(page).click();
 
-  //const sellAmount = currentCookieCount - 1;
-  const sellAmount = currentCookieCount;
-
-  const sellInput = page.locator('input').nth(0);
-
-  await sellInput.fill(String(sellAmount));
-
-  await expect(sellInput).toHaveValue(String(sellAmount));
-
-  await page.getByRole('button', {
-    name: /sell cookies!/i
-  }).click();
-
-  await expect.poll(async () => { return await getCookieCount(page);},
-  {
-    message: 'BUG: User can not sell the same number of cookies that are available'
-  }
-  ).toBe(currentCookieCount - sellAmount);
+  await expectCookieCountToBe(
+    page,
+    0,
+    'BUG: User can not sell the same number of cookies that are available'
+  );
 });
 
-// To always be the last passing test of the pack as it runs the counter
+test('Money value increases by $0.25 for every cookie sold', async ({ page }) => {
+  await goToExistingUserGame(page, userName);
+
+  await ensureCookiesAvailable(page, 2);
+
+  const initialMoneyValue = await getMoneyValue(page);
+
+  await enterSellAmount(page, sellAmount);
+  await getSellCookiesButton(page).click();
+
+  const expectedMoneyValue = initialMoneyValue + moneyPerCookie;
+
+  await expect.poll(async () => getMoneyValue(page)).toBe(expectedMoneyValue);
+
+  const updatedMoneyValue = await getMoneyValue(page);
+
+  expect(updatedMoneyValue).toBe(expectedMoneyValue);
+});
+
 test('Factory increases cookie generation rate over time', async ({ page }) => {
   await goToExistingUserGame(page, userName);
 
-  const factoryAmount = 1;
-
   await buyFactories(page, factoryAmount);
 
-  // Record initial cookie count and start time
   const initialCookieCount = await getCookieCount(page);
-
   const startTime = Date.now();
 
   await page.waitForTimeout(waitTimeInSeconds * 1000);
 
-  // Record final cookie count and end time
   const finalCookieCount = await getCookieCount(page);
-
   const endTime = Date.now();
 
-  // Calculate results
-  const cookiesIncremented =
-    finalCookieCount - initialCookieCount;
+  const cookiesIncremented = finalCookieCount - initialCookieCount;
+  const totalTimeInSeconds = (endTime - startTime) / 1000;
+  const incrementRate = cookiesIncremented / totalTimeInSeconds;
 
-  const totalTimeInSeconds =
-    (endTime - startTime) / 1000;
-
-  const incrementRate =
-    cookiesIncremented / totalTimeInSeconds;
-
-  // Console output
   console.log(`Initial Cookie Count: ${initialCookieCount}`);
-
   console.log(`Final Cookie Count: ${finalCookieCount}`);
-
   console.log(`Cookies Incremented: ${cookiesIncremented}`);
-
   console.log(`Time Taken: ${totalTimeInSeconds} seconds`);
+  console.log(`Cookie Increment Rate: ${incrementRate.toFixed(2)} cookies/second`);
 
-  console.log(
-    `Cookie Increment Rate: ${incrementRate.toFixed(2)} cookies/second`
-  );
-
-  // Validation
   expect(cookiesIncremented).toBeGreaterThan(0);
-
 });
 
-test('User should not be created when navigating directly to game URL',  async ({ page }) => {
+test('User should not be created when navigating directly to game URL', async ({ page }) => {
+  const randomUserName = `User_${Date.now()}`;
 
-    const randomUserName = `User_${Date.now()}`;
+  await page.goto(`${url}/game/${randomUserName}`);
+  await expect(page).toHaveURL(`${url}/game/${randomUserName}`);
 
-    await page.goto(`${url}/game/${randomUserName}`);
+  await page.goto(url);
 
-    await expect(page).toHaveURL(
-      `${url}/game/${randomUserName}`
-    );
+  const userLink = getUserLink(page, randomUserName);
 
-    await page.goto(url);
+  await expect(
+    userLink,
+    'BUG: User gets automatically created when navigating directly to /game/{username}'
+  ).not.toBeVisible();
+});
 
-    const userLink = getUserLink(page, randomUserName);
+test('Existing user cookie counter should not reset after clicking Start button', async ({ page }) => {
+  const landingPageScore = await getUserScore(page, userName);
 
-    await expect(
-      userLink,
-      'BUG: User gets automatically created when navigating directly to /game/{username}'
-    ).not.toBeVisible();
+  expect(landingPageScore).toBeGreaterThan(0);
 
-  }
-);
+  await startGame(page, userName);
 
-// To always be the last test of the pack as it resets the counter
-test('Existing user cookie counter should not reset after clicking Start button',  async ({ page }) => {
+  const gameCookieCount = await getCookieCount(page);
 
-    const landingPageScore = await getUserScore(page, userName);
-
-    expect(landingPageScore).toBeGreaterThan(0);
-
-    await startGame(page, userName);
-
-    const gameCookieCount = await getCookieCount(page);
-
-    expect(
-      gameCookieCount,
-      'BUG: Existing user cookie counter resets to 0 after clicking Start button'
-    ).toBe(landingPageScore);
-
-  }
-);
+  expect(
+    gameCookieCount,
+    'BUG: Existing user cookie counter resets to 0 after clicking Start button'
+  ).toBe(landingPageScore);
+});
