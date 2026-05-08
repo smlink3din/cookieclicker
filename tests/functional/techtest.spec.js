@@ -15,7 +15,7 @@ const getCookieCount = async (page) => {
     .locator('p', { hasText: /Cookies:/ })
     .textContent();
 
-  console.log(`Cookie text found: ${text}`);
+  //console.log(`Cookie text found: ${text}`);
 
   const match = text.match(/Cookies:\s*([+-]?\d+(?:\.\d+)?(?:e[+-]?\d+)?)/i);
 
@@ -53,7 +53,7 @@ const getUserScore = async (page, userName) => {
     .nth(1)
     .textContent();
 
-  console.log(`Leaderboard score text found: ${scoreText}`);
+  //console.log(`Leaderboard score text found: ${scoreText}`);
 
   const match = scoreText.match(/[+-]?\d+(?:\.\d+)?(?:e[+-]?\d+)?/i);
 
@@ -357,8 +357,8 @@ test('Large Buy Factories value does not crash cookie counter', async ({ page })
     page.locator('p', { hasText: /Cookies:/ })
   ).toBeVisible();
 
-  console.log(`Initial Cookie Count: ${initialCookieCount}`);
-  console.log(`Cookie Count After Large Factory Input: ${cookieCountAfterLargeFactoryInput}`);
+  //console.log(`Initial Cookie Count: ${initialCookieCount}`);
+  //console.log(`Cookie Count After Large Factory Input: ${cookieCountAfterLargeFactoryInput}`);
 });
 
 test('User should not be created when navigating directly to game URL', async ({ page }) => {
