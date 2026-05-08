@@ -11,13 +11,27 @@ const moneyPerCookie = 0.25;
 
 // Reusable locators/helpers
 const getCookieCount = async (page) => {
-  const text = await page.locator('p', { hasText: /Cookies:/ }).textContent();
-  return Number(text.match(/\d+/)[0]);
+  const text = await page
+    .locator('p', { hasText: /Cookies:/ })
+    .textContent();
+
+  console.log(`Cookie text found: ${text}`);
+
+  const match = text.match(/Cookies:\s*([+-]?\d+(?:\.\d+)?(?:e[+-]?\d+)?)/i);
+
+  if (!match) {
+    throw new Error(`Could not extract cookie count from text: "${text}"`);
+  }
+
+  return Number(match[1]);
 };
 
 const getMoneyValue = async (page) => {
   const text = await page.locator('p', { hasText: /Money:/ }).textContent();
-  return Number(text.match(/\$([\d.]+)/)[1]);
+
+  return Number(
+    text.match(/\$?([\d.]+)/)[1]
+  );
 };
 
 const getFactoryCount = async (page) => {
@@ -39,7 +53,15 @@ const getUserScore = async (page, userName) => {
     .nth(1)
     .textContent();
 
-  return Number(scoreText.trim());
+  console.log(`Leaderboard score text found: ${scoreText}`);
+
+  const match = scoreText.match(/[+-]?\d+(?:\.\d+)?(?:e[+-]?\d+)?/i);
+
+  if (!match) {
+    throw new Error(`Could not extract user score from text: "${scoreText}"`);
+  }
+
+  return Number(match[0]);
 };
 
 const getSellInput = (page) => page.locator('input').nth(0);
@@ -222,6 +244,68 @@ test('Money value increases by $0.25 for every cookie sold', async ({ page }) =>
   expect(updatedMoneyValue).toBe(expectedMoneyValue);
 });
 
+test('Factory should not be bought when money is $2.75', async ({ page }) => {
+  const newUserName = `Factory_Test_${Date.now()}`;
+
+  await page.goto(`${url}/game/${newUserName}`);
+
+  // Generate 11 cookies
+  // 11 x $0.25 = $2.75
+  await clickCookieMultipleTimes(page, 12);
+
+  // Sell all 11 cookies
+  await enterSellAmount(page, 11);
+  await getSellCookiesButton(page).click();
+
+  // Verify money is $2.75
+  const currentMoneyValue = await getMoneyValue(page);
+
+  expect(currentMoneyValue).toBe(2.75);
+
+  // Get current factory count
+  const initialFactoryCount = await getFactoryCount(page);
+
+  // Attempt to buy 1 factory
+  await buyFactories(page, 1);
+
+  // Verify factory count did not increase
+  const updatedFactoryCount = await getFactoryCount(page);
+
+  expect(
+    updatedFactoryCount,
+    'BUG: User can buy factory when money is only $2.75'
+  ).toBe(initialFactoryCount);
+});
+
+test('Factory can be bought when money is at least $3.00', async ({ page }) => {
+  const newUserName = `Factory_Buy_Test_${Date.now()}`;
+
+  await page.goto(`${url}/game/${newUserName}`);
+
+  // Due to current bug not allowing the user to sell all the cookies available
+  await clickCookieMultipleTimes(page, 13);
+
+  // 12 cookies x $0.25 = $3.00
+  await enterSellAmount(page, 12);
+  await getSellCookiesButton(page).click();
+
+  await expect.poll(async () => {
+    return await getMoneyValue(page);
+  }).toBe(3);
+
+  const currentMoneyValue = await getMoneyValue(page);
+
+  expect(currentMoneyValue).toBe(3);
+
+  const initialFactoryCount = await getFactoryCount(page);
+
+  await buyFactories(page, 1);
+
+  await expect.poll(async () => {
+    return await getFactoryCount(page);
+  }).toBe(initialFactoryCount + 1);
+});
+
 test('Factory increases cookie generation rate over time', async ({ page }) => {
   await goToExistingUserGame(page, userName);
 
@@ -246,6 +330,35 @@ test('Factory increases cookie generation rate over time', async ({ page }) => {
   console.log(`Cookie Increment Rate: ${incrementRate.toFixed(2)} cookies/second`);
 
   expect(cookiesIncremented).toBeGreaterThan(0);
+});
+
+test('Large Buy Factories value does not crash cookie counter', async ({ page }) => {
+  await goToExistingUserGame(page, userName);
+
+  const largeFactoryAmount = 999999999999999999999999999999999999999999999999999999;
+
+  const initialCookieCount = await getCookieCount(page);
+
+  await buyFactories(page, largeFactoryAmount);
+
+  const cookieCountAfterLargeFactoryInput = await getCookieCount(page);
+
+  expect(
+    Number.isFinite(cookieCountAfterLargeFactoryInput),
+    'BUG: Cookie counter became unreadable after entering a large Buy Factories value'
+  ).toBe(true);
+
+  expect(
+    cookieCountAfterLargeFactoryInput,
+    'BUG: Cookie counter should remain a valid number after large Buy Factories input'
+  ).not.toBeNaN();
+
+  await expect(
+    page.locator('p', { hasText: /Cookies:/ })
+  ).toBeVisible();
+
+  console.log(`Initial Cookie Count: ${initialCookieCount}`);
+  console.log(`Cookie Count After Large Factory Input: ${cookieCountAfterLargeFactoryInput}`);
 });
 
 test('User should not be created when navigating directly to game URL', async ({ page }) => {
